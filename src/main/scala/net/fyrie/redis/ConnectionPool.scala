@@ -3,8 +3,9 @@ package redis
 
 import messages.{ RequestClient, ReleaseClient, Disconnect }
 import akka.actor._
-import akka.dispatch.{ Promise, Future }
+import concurrent.{ Promise, Future }
 import collection.immutable.Queue
+import util.{ Success, Failure }
 
 private[redis] class ConnectionPool(initialSize: Range, factory: (ActorRefFactory) ⇒ RedisClientPoolWorker) extends Actor {
   var ready: List[RedisClientPoolWorker] = Nil
@@ -27,14 +28,14 @@ private[redis] class ConnectionPool(initialSize: Range, factory: (ActorRefFactor
             factory(context)
         }
         active += client
-        promise complete Right(client)
+        promise complete Success(client)
       }
     case ReleaseClient(client) ⇒
       if (active.size > limit.max) {
         killClient(client)
       } else if (queue.nonEmpty) {
         val (promise, rest) = queue.dequeue
-        promise complete Right(client)
+        promise complete Success(client)
         queue = rest
       } else if ((size - active.size) == limit.min) {
         killClient(client)
@@ -51,7 +52,7 @@ private[redis] class ConnectionPool(initialSize: Range, factory: (ActorRefFactor
   }
 
   override def postStop {
-    queue foreach (_ complete Left(RedisConnectionException("Connection pool shutting down")))
+    queue foreach (_ complete Failure(RedisConnectionException("Connection pool shutting down")))
   }
 
 }

@@ -66,13 +66,13 @@ case class Repeat(block: Block, test: Exp) extends Stat {
 case class If(test: Exp) {
   def Then(block: Block) = IfThen(test, block, Vector.empty)
 }
-case class IfThen(test: Exp, then: Block, elseIf: Vector[ElseIfThen]) extends Stat {
+case class IfThen(test: Exp, thenDo: Block, elseIf: Vector[ElseIfThen]) extends Stat {
   def ElseIf(test: Exp) = lua.ElseIf(test, this)
-  def Else(block: Block) = IfThenElse(test, then, elseIf, block)
-  val bytes = ((IF ++ test.bytes ++ THEN ++ then.bytes) /: elseIf)(_ ++ _.bytes) ++ END
+  def Else(block: Block) = IfThenElse(test, thenDo, elseIf, block)
+  val bytes = ((IF ++ test.bytes ++ THEN ++ thenDo.bytes) /: elseIf)(_ ++ _.bytes) ++ END
 }
-case class IfThenElse(test: Exp, then: Block, elseIf: Vector[ElseIfThen], `else`: Block) extends Stat {
-  val bytes = ((IF ++ test.bytes ++ THEN ++ then.bytes) /: elseIf)(_ ++ _.bytes) ++ ELSE ++ `else`.bytes ++ END
+case class IfThenElse(test: Exp, thenDo: Block, elseIf: Vector[ElseIfThen], `else`: Block) extends Stat {
+  val bytes = ((IF ++ test.bytes ++ THEN ++ thenDo.bytes) /: elseIf)(_ ++ _.bytes) ++ ELSE ++ `else`.bytes ++ END
 }
 case class ElseIf(test: Exp, parent: IfThen) {
   def Then(block: Block) = parent.copy(elseIf = parent.elseIf :+ ElseIfThen(test, block))

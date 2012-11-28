@@ -1,9 +1,8 @@
 package net.fyrie.redis
 
 import types._
-
-import akka.dispatch.{ Promise, Future }
 import akka.util.ByteString
+import concurrent.Promise
 
 object Queued {
   private[redis] def apply[A](value: A, request: (ByteString, Promise[RedisType]), response: Promise[RedisType]): Queued[A] =

@@ -9,7 +9,6 @@ import protocol._
 
 import akka.actor._
 import akka.util.ByteString
-import akka.util.duration._
 import akka.event.Logging
 
 import java.util.concurrent.TimeUnit
@@ -96,10 +95,13 @@ private[redis] final class RedisClientSession(host: String, port: Int, config: R
       } */
 
     case IO.Closed(handle, cause) if sockets contains handle ⇒
-      log info ("Connection closed" + (cause map (e ⇒ ", cause: " + e.toString) getOrElse ""))
+      log info ("Connection closed" + (cause match {
+        case IO.Error(e) ⇒ ", cause: " + e.toString
+        case _           ⇒ ""
+      }))
       // FIXME: stop actors
       // sendToSupervisor(Disconnect)
-      state(handle)(IO EOF cause)
+      state(handle)(IO.EOF)
 
     case Received ⇒
     //waiting.dequeue
@@ -174,14 +176,21 @@ private[redis] final class RedisSubscriberSession(listener: ActorRef)(host: Stri
       state(IO Chunk bytes)
 
     case IO.Closed(handle, cause) if socket == handle ⇒
-      log info ("Connection closed" + (cause map (e ⇒ ", cause: " + e.toString) getOrElse ""))
+      log info ("Connection closed" + (cause match {
+        case IO.Error(e) ⇒ ", cause: " + e.toString
+        case _           ⇒ ""
+      }))
       // FIXME: stop actors
       // sendToSupervisor(Disconnect)
-      state(IO EOF cause)
+      cause match {
+        case IO.Error(e) ⇒ throw e
+        case _           ⇒ throw new RuntimeException("Socket closed")
+      }
   }
 
   override def postStop() {
     socket.close
+    state(IO.EOF)
   }
 
   def subscriber(listener: ActorRef): IO.Iteratee[Unit] = readResult flatMap { result ⇒

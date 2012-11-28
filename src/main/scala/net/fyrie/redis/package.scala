@@ -1,8 +1,9 @@
 package net.fyrie
 
-import akka.util.{ ByteString, Duration }
-import akka.dispatch.{ Future, Promise }
+import akka.util.ByteString
 import redis.serialization.Parse
+import concurrent.{ Promise, Future }
+import concurrent.duration.Duration
 
 package redis {
 

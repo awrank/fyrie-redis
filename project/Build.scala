@@ -1,26 +1,26 @@
 import sbt._
 import Keys._
 
-import com.typesafe.sbtscalariform.ScalariformPlugin
-import com.typesafe.sbtscalariform.ScalariformPlugin.ScalariformKeys
+import com.typesafe.sbt.SbtScalariform
+import com.typesafe.sbt.SbtScalariform.ScalariformKeys
 
 object FyrieRedisBuild extends Build {
   lazy val core = (Project("fyrie-redis", file("."))
                    configs(Benchmark)
                    settings(coreSettings: _*))
 
-  val coreSettings = Defaults.defaultSettings ++ inConfig(Benchmark)(Defaults.configSettings) ++ ScalariformPlugin.scalariformSettings ++ Seq(
-    scalaVersion := "2.9.1",
-    crossScalaVersions := Seq("2.9.0-1", "2.9.1", "2.10.0-M1"),
+  val coreSettings = Defaults.defaultSettings ++ inConfig(Benchmark)(Defaults.configSettings) ++ SbtScalariform.scalariformSettings ++ Seq(
+    scalaVersion := "2.10.0-RC2",
+    crossScalaVersions := Seq("2.10.0-RC1", "2.10.0-RC2"),
     name := "fyrie-redis",
     organization := "net.fyrie",
-    version := "2.0-SNAPSHOT",
+    version := "2.1",
     resolvers ++= Seq("Sonatype OSS Repo" at "http://oss.sonatype.org/content/repositories/snapshots",
-                      "Akka Snapshot Repo" at "http://akka.io/snapshots"),
-    libraryDependencies ++= Seq("com.typesafe.akka" % "akka-actor" % "2.0-20120124-000638",
-                                "com.typesafe.akka" % "akka-testkit" % "2.0-20120124-000638" % "test",
-                                "org.specs2" % "specs2_2.9.1" % "1.6.1",
-                                "org.specs2" % "specs2-scalaz-core_2.9.1" % "6.0.1" % "test"),
+                      "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/"),
+    libraryDependencies ++= Seq("com.typesafe.akka" % "akka-actor_2.10.0-RC2" % "2.1.0-RC2",
+                                "com.typesafe.akka" % "akka-testkit_2.10.0-RC2" % "2.1.0-RC2" % "test",
+                                "org.specs2" % "specs2_2.10.0-RC2" % "1.12.2",
+                                "org.specs2" % "specs2-scalaz-core_2.10.0-RC2" % "6.0.1" % "test"),
                                 //"com.google.code.caliper" % "caliper" % "1.0-SNAPSHOT" % "benchmark",
                                 //"com.google.code.gson" % "gson" % "1.7.1" % "benchmark"),
     parallelExecution := false,

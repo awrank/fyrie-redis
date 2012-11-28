@@ -4,7 +4,7 @@ package messages
 
 import akka.util.ByteString
 import akka.actor.{ IO, ActorRef }
-import akka.dispatch.Promise
+import concurrent.Promise
 
 import types.RedisType
 import serialization.Store

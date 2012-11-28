@@ -9,8 +9,10 @@ import types._
 import serialization.{ Parse, Store }
 
 import akka.actor._
-import akka.dispatch.{ Future, Promise, Await }
-import akka.util.{ ByteString, ByteStringBuilder, Timeout, Duration }
+import akka.util.{ ByteString, ByteStringBuilder, Timeout }
+import concurrent.{ ExecutionContext, Promise, Future, Await }
+import concurrent.duration.Duration
+import util.{ Failure, Success }
 
 case class RedisClientConfig(connections: Int = 1,
                              autoReconnect: Boolean = true,
@@ -53,7 +55,7 @@ final class RedisClient(val host: String, val port: Int, val config: RedisClient
     def sync: RedisClientSync = RedisClient.this.sync
   }
 
-  def multi[T](block: (RedisClientMulti) ⇒ Queued[T]): T = {
+  def multi[T](block: (RedisClientMulti) ⇒ Queued[T])(implicit executor: ExecutionContext): T = {
     val rq = new RedisClientMulti(config) {
       def system = RedisClient.this.system
       def actor = RedisClient.this.actor
@@ -61,10 +63,10 @@ final class RedisClient(val host: String, val port: Int, val config: RedisClient
     rq.exec(block(rq))
   }
 
-  def atomic[T](block: (RedisClientWatch) ⇒ Future[Queued[T]]): Future[T] = {
+  def atomic[T](block: (RedisClientWatch) ⇒ Future[Queued[T]])(implicit executor: ExecutionContext): Future[T] = {
     val promise = Promise[RedisClientPoolWorker]()
     pool ! RequestClient(promise)
-    promise flatMap (_.run(block))
+    promise.future flatMap (_.run(block))
   }
 
   def subscriber(listener: ActorRef): ActorRef =
@@ -110,7 +112,7 @@ sealed abstract class RedisClientAsync(config: RedisClientConfig) extends Comman
   final private[redis] def send(in: List[ByteString]): Future[Any] = {
     val promise = Promise[RedisType]()
     actor ! Request(PromiseRequestor(promise), format(in))
-    promise
+    promise.future
   }
 }
 
@@ -120,7 +122,7 @@ sealed abstract class RedisClientSync(config: RedisClientConfig) extends Command
   final private[redis] def send(in: List[ByteString]): Any = {
     val promise = Promise[RedisType]()
     actor ! Request(PromiseRequestor(promise), format(in))
-    Await.result(promise, Duration.Inf)
+    Await.result(promise.future, Duration.Inf)
   }
 }
 
@@ -136,32 +138,32 @@ sealed abstract class RedisClientMulti(config: RedisClientConfig) extends Comman
 
   final private[redis] def send(in: List[ByteString]): Queued[Future[Any]] = {
     val result = Promise[RedisType]()
-    Queued(result, (format(in), Promise[RedisType]()), result)
+    Queued(result.future, (format(in), Promise[RedisType]()), result)
   }
 
-  final private[redis] def exec[T](q: Queued[T]): T = {
+  final private[redis] def exec[T](q: Queued[T])(implicit executor: ExecutionContext): T = {
     val promise = Promise[RedisType]()
-    promise foreach {
+    promise.future foreach {
       case RedisMulti(m) ⇒
         var responses = q.responses
-        (q.responses.iterator zip (q.requests.iterator map (_._2.value))) foreach {
-          case (resp, Some(Right(status))) ⇒ try { toStatus(status) } catch { case e ⇒ resp complete Left(e) }
-          case (resp, _)                   ⇒ resp complete Left(RedisProtocolException("Unexpected response"))
+        (q.responses.iterator zip (q.requests.iterator map (_._2.future.value))) foreach {
+          case (resp, Some(Success(status))) ⇒ try { toStatus(status) } catch { case e: Throwable ⇒ resp complete Failure(e) }
+          case (resp, _)                     ⇒ resp complete Failure(RedisProtocolException("Unexpected response"))
         }
         for {
           list ← m
           rtype ← list
         } {
           while (responses.head.isCompleted) { responses = responses.tail }
-          responses.head complete Right(rtype)
+          responses.head complete Success(rtype)
           responses = responses.tail
         }
       case RedisError(e) ⇒
         val re = RedisErrorException(e)
-        q.responses foreach (_.complete(Left(re)))
+        q.responses foreach (_.complete(Failure(re)))
       case _ ⇒
         val re = RedisProtocolException("Unexpected response")
-        q.responses foreach (_.complete(Left(re)))
+        q.responses foreach (_.complete(Failure(re)))
     }
     actor ! MultiRequest(PromiseRequestor(promise), format(List(Constants.MULTI)), q.requests, format(List(Constants.EXEC)))
     q.value
@@ -174,44 +176,48 @@ sealed abstract class RedisClientWatch(config: RedisClientConfig) extends Comman
   final private[redis] def send(in: List[ByteString]): Future[Any] = {
     val promise = Promise[RedisType]()
     actor ! Request(PromiseRequestor(promise), format(in))
-    promise
+    promise.future
   }
 
-  final private[redis] def run[T](block: (RedisClientWatch) ⇒ Future[Queued[T]]): Future[T] = {
+  final private[redis] def run[T](block: (RedisClientWatch) ⇒ Future[Queued[T]])(implicit executor: ExecutionContext): Future[T] = {
     val promise = Promise[T]()
     exec(promise, block)
-    promise onComplete { _ ⇒ this.release }
+    val future = promise.future
+    future onComplete { _ ⇒ this.release }
+    future
   }
 
-  final private[redis] def exec[T](promise: Promise[T], block: (RedisClientWatch) ⇒ Future[Queued[T]]): Unit = {
-    block(this) onFailure { case e ⇒ promise complete Left(e) } foreach { q ⇒
+  final private[redis] def exec[T](promise: Promise[T], block: (RedisClientWatch) ⇒ Future[Queued[T]])(implicit executor: ExecutionContext): Unit = {
+    val future = block(this)
+    future onFailure { case e ⇒ promise complete Failure(e) }
+    future foreach { q ⇒
       val multiPromise = Promise[RedisType]()
-      multiPromise foreach {
+      multiPromise.future foreach {
         case RedisMulti(None) ⇒
           exec(promise, block) // TODO: add timeout?
         case RedisMulti(m) ⇒
           var responses = q.responses
-          (q.responses.iterator zip (q.requests.iterator map (_._2.value))) foreach {
-            case (resp, Some(Right(status))) ⇒ try { toStatus(status) } catch { case e ⇒ resp complete Left(e) }
-            case (resp, _)                   ⇒ resp complete Left(RedisProtocolException("Unexpected response"))
+          (q.responses.iterator zip (q.requests.iterator map (_._2.future.value))) foreach {
+            case (resp, Some(Success(status))) ⇒ try { toStatus(status) } catch { case e: Throwable ⇒ resp complete Failure(e) }
+            case (resp, _)                     ⇒ resp complete Failure(RedisProtocolException("Unexpected response"))
           }
           for {
             list ← m
             rtype ← list
           } {
             while (responses.head.isCompleted) { responses = responses.tail }
-            responses.head complete Right(rtype)
+            responses.head complete Success(rtype)
             responses = responses.tail
           }
-          promise complete Right(q.value)
+          promise complete Success(q.value)
         case RedisError(e) ⇒
           val re = RedisErrorException(e)
-          q.responses foreach (_.complete(Left(re)))
-          promise complete Left(re)
+          q.responses foreach (_.complete(Failure(re)))
+          promise complete Failure(re)
         case _ ⇒
           val re = RedisProtocolException("Unexpected response")
-          q.responses foreach (_.complete(Left(re)))
-          promise complete Left(re)
+          q.responses foreach (_.complete(Failure(re)))
+          promise complete Failure(re)
       }
       actor ! MultiRequest(PromiseRequestor(multiPromise), format(List(Constants.MULTI)), q.requests, format(List(Constants.EXEC)))
     }
