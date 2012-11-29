@@ -4,7 +4,7 @@ import akka.util.ByteString
 import concurrent.{ ExecutionContext, Future }
 
 private[redis] sealed abstract class ResultFunctor[R[_]] {
-  def fmap[A, B](a: R[A])(f: A ⇒ B): R[B]
+  def fmap[A, B](a: R[A])(f: A ⇒ B)(implicit executor: ExecutionContext): R[B]
 }
 
 private[redis] object ResultFunctor {
@@ -12,10 +12,10 @@ private[redis] object ResultFunctor {
     def fmap[A, B](a: Future[A])(f: A ⇒ B)(implicit executor: ExecutionContext): Future[B] = a map f
   }
   implicit val sync: ResultFunctor[({ type λ[α] = α })#λ] = new ResultFunctor[({ type λ[α] = α })#λ] {
-    def fmap[A, B](a: A)(f: A ⇒ B): B = f(a)
+    def fmap[A, B](a: A)(f: A ⇒ B)(implicit executor: ExecutionContext): B = f(a)
   }
   implicit val quiet: ResultFunctor[({ type λ[_] = Unit })#λ] = new ResultFunctor[({ type λ[_] = Unit })#λ] {
-    def fmap[A, B](a: Unit)(f: A ⇒ B): Unit = ()
+    def fmap[A, B](a: Unit)(f: A ⇒ B)(implicit executor: ExecutionContext): Unit = ()
   }
   implicit val multi: ResultFunctor[({ type λ[α] = Queued[Future[α]] })#λ] = new ResultFunctor[({ type λ[α] = Queued[Future[α]] })#λ] {
     def fmap[A, B](a: Queued[Future[A]])(f: A ⇒ B)(implicit executor: ExecutionContext): Queued[Future[B]] = a map (_ map f)

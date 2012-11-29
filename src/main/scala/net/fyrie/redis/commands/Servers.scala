@@ -3,22 +3,23 @@ package commands
 
 import serialization._
 import akka.util.ByteString
+import concurrent.ExecutionContext
 
 private[redis] trait Servers[Result[_]] {
   this: Commands[Result] ⇒
   import protocol.Constants._
 
-  def save(): Result[Unit] = send(SAVE :: Nil)
+  def save()(implicit executor: ExecutionContext): Result[Unit] = send(SAVE :: Nil)
 
-  def bgsave(): Result[Unit] = send(BGSAVE :: Nil)
+  def bgsave()(implicit executor: ExecutionContext): Result[Unit] = send(BGSAVE :: Nil)
 
-  def lastsave(): Result[Int] = send(LASTSAVE :: Nil)
+  def lastsave()(implicit executor: ExecutionContext): Result[Int] = send(LASTSAVE :: Nil)
 
   //def shutdown(): Result[Nothing]
 
-  def bgrewriteaof(): Result[Unit] = send(BGREWRITEAOF :: Nil)
+  def bgrewriteaof()(implicit executor: ExecutionContext): Result[Unit] = send(BGREWRITEAOF :: Nil)
 
-  def info(): Result[String] = send(INFO :: Nil)
+  def info()(implicit executor: ExecutionContext): Result[String] = send(INFO :: Nil)
 
   //def monitor extends Command(OkStatus)
   /*

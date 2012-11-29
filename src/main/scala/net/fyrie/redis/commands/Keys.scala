@@ -3,6 +3,7 @@ package commands
 
 import serialization._
 import akka.util.ByteString
+import concurrent.ExecutionContext
 
 private[redis] trait Keys[Result[_]] {
   this: Commands[Result] ⇒
@@ -17,8 +18,8 @@ private[redis] trait Keys[Result[_]] {
    *
    * @see <a href="http://code.google.com/p/redis/wiki/KeysCommand">Redis Command Reference</a>
    */
-  def keys[A: Store](pattern: A): Result[Set[ByteString]] = send(KEYS :: Store(pattern) :: Nil)
-  def keys(): Result[Set[ByteString]] = send(KEYS :: ALLKEYS :: Nil)
+  def keys[A: Store](pattern: A)(implicit executor: ExecutionContext): Result[Set[ByteString]] = send(KEYS :: Store(pattern) :: Nil)
+  def keys()(implicit executor: ExecutionContext): Result[Set[ByteString]] = send(KEYS :: ALLKEYS :: Nil)
 
   /**
    * Request a random key.
@@ -27,7 +28,7 @@ private[redis] trait Keys[Result[_]] {
    *
    * @see <a href="http://code.google.com/p/redis/wiki/RandomkeyCommand">Redis Command Reference</a>
    */
-  def randomkey(): Result[Option[ByteString]] = send(List(RANDOMKEY))
+  def randomkey()(implicit executor: ExecutionContext): Result[Option[ByteString]] = send(List(RANDOMKEY))
 
   /**
    * Rename a key.
@@ -39,7 +40,7 @@ private[redis] trait Keys[Result[_]] {
    *
    * @see <a href="http://code.google.com/p/redis/wiki/RenameCommand">Redis Command Reference</a>
    */
-  def rename[A: Store, B: Store](oldkey: A, newkey: B): Result[Unit] =
+  def rename[A: Store, B: Store](oldkey: A, newkey: B)(implicit executor: ExecutionContext): Result[Unit] =
     send(RENAME :: Store(oldkey) :: Store(newkey) :: Nil)
 
   /**
@@ -53,7 +54,7 @@ private[redis] trait Keys[Result[_]] {
    *
    * @see <a href="http://code.google.com/p/redis/wiki/RenamenxCommand">Redis Command Reference</a>
    */
-  def renamenx[A: Store, B: Store](oldkey: A, newkey: B): Result[Boolean] =
+  def renamenx[A: Store, B: Store](oldkey: A, newkey: B)(implicit executor: ExecutionContext): Result[Boolean] =
     send(RENAMENX :: Store(oldkey) :: Store(newkey) :: Nil)
 
   /**
@@ -63,7 +64,7 @@ private[redis] trait Keys[Result[_]] {
    *
    * @see <a href="http://code.google.com/p/redis/wiki/DbsizeCommand">Redis Command Reference</a>
    */
-  def dbsize(): Result[Int] = send(DBSIZE :: Nil)
+  def dbsize()(implicit executor: ExecutionContext): Result[Int] = send(DBSIZE :: Nil)
 
   /**
    * Tests if `key` exists.
@@ -74,7 +75,7 @@ private[redis] trait Keys[Result[_]] {
    *
    * @see <a href="http://code.google.com/p/redis/wiki/ExistsCommand">Redis Command Reference</a>
    */
-  def exists[A: Store](key: A): Result[Boolean] = send(EXISTS :: Store(key) :: Nil)
+  def exists[A: Store](key: A)(implicit executor: ExecutionContext): Result[Boolean] = send(EXISTS :: Store(key) :: Nil)
 
   /**
    * Delete each key in `keys`. Returns the actual number of keys deleted.
@@ -90,8 +91,8 @@ private[redis] trait Keys[Result[_]] {
    *
    * @see <a href="http://code.google.com/p/redis/wiki/DelCommand">Redis Command Reference</a>
    */
-  def del[A: Store](keys: Iterable[A]): Result[Int] = send(DEL :: (keys.map(Store(_))(collection.breakOut): List[ByteString]))
-  def del[A: Store](key: A): Result[Int] = send(DEL :: Store(key) :: Nil)
+  def del[A: Store](keys: Iterable[A])(implicit executor: ExecutionContext): Result[Int] = send(DEL :: (keys.map(Store(_))(collection.breakOut): List[ByteString]))
+  def del[A: Store](key: A)(implicit executor: ExecutionContext): Result[Int] = send(DEL :: Store(key) :: Nil)
 
   /**
    * Requests the type of the value stored at `key`.
@@ -102,7 +103,7 @@ private[redis] trait Keys[Result[_]] {
    *
    * @see <a href="http://code.google.com/p/redis/wiki/TypeCommand">Redis Command Reference</a>
    */
-  def typeof[A: Store](key: A): Result[String] = send(TYPE :: Store(key) :: Nil)
+  def typeof[A: Store](key: A)(implicit executor: ExecutionContext): Result[String] = send(TYPE :: Store(key) :: Nil)
 
   /**
    * Set a timeout of the specified key. After the timeout the key will be
@@ -115,7 +116,7 @@ private[redis] trait Keys[Result[_]] {
    *
    * @see <a href="http://code.google.com/p/redis/wiki/ExpireCommand">Redis Command Reference</a>
    */
-  def expire[A: Store](key: A, seconds: Long): Result[Boolean] =
+  def expire[A: Store](key: A, seconds: Long)(implicit executor: ExecutionContext): Result[Boolean] =
     send(EXPIRE :: Store(key) :: Store(seconds) :: Nil)
 
   /**
@@ -129,7 +130,7 @@ private[redis] trait Keys[Result[_]] {
    *
    * @see <a href="http://code.google.com/p/redis/wiki/ExpireCommand">Redis Command Reference</a>
    */
-  def expireat[A: Store](key: A, unixtime: Long): Result[Boolean] =
+  def expireat[A: Store](key: A, unixtime: Long)(implicit executor: ExecutionContext): Result[Boolean] =
     send(EXPIREAT :: Store(key) :: Store(unixtime) :: Nil)
 
   /**
@@ -141,7 +142,7 @@ private[redis] trait Keys[Result[_]] {
    *
    * @see <a href="http://code.google.com/p/redis/wiki/SelectCommand">Redis Command Reference</a>
    */
-  def select(index: Int = 0): Result[Unit] = send(SELECT :: Store(index) :: Nil)
+  def select(index: Int = 0)(implicit executor: ExecutionContext): Result[Unit] = send(SELECT :: Store(index) :: Nil)
 
   /**
    * Delete all keys in the currently selected database.
@@ -150,7 +151,7 @@ private[redis] trait Keys[Result[_]] {
    *
    * @see <a href="http://code.google.com/p/redis/wiki/FlushdbCommand">Redis Command Reference</a>
    */
-  def flushdb(): Result[Unit] = send(FLUSHDB :: Nil)
+  def flushdb()(implicit executor: ExecutionContext): Result[Unit] = send(FLUSHDB :: Nil)
 
   /**
    * Delete all keys in all databases.
@@ -159,7 +160,7 @@ private[redis] trait Keys[Result[_]] {
    *
    * @see <a href="http://code.google.com/p/redis/wiki/FlushallCommand">Redis Command Reference</a>
    */
-  def flushall(): Result[Unit] = send(FLUSHALL :: Nil)
+  def flushall()(implicit executor: ExecutionContext): Result[Unit] = send(FLUSHALL :: Nil)
 
   /**
    * Move `key` from the currently selected database to the database at index `db`.
@@ -172,7 +173,7 @@ private[redis] trait Keys[Result[_]] {
    *
    * @see <a href="http://code.google.com/p/redis/wiki/MoveCommand">Redis Command Reference</a>
    */
-  def move[A: Store](key: A, db: Int = 0): Result[Boolean] = send(MOVE :: Store(key) :: Store(db) :: Nil)
+  def move[A: Store](key: A, db: Int = 0)(implicit executor: ExecutionContext): Result[Boolean] = send(MOVE :: Store(key) :: Store(db) :: Nil)
 
   /**
    * Asks the server to close the connection.
@@ -181,7 +182,7 @@ private[redis] trait Keys[Result[_]] {
    *
    * @see <a href="http://code.google.com/p/redis/wiki/QuitCommand">Redis Command Reference</a>
    */
-  def quit(): Result[Unit] = send(QUIT :: Nil)
+  def quit()(implicit executor: ExecutionContext): Result[Unit] = send(QUIT :: Nil)
 
   /**
    * Supply a password if required to send commands.
@@ -192,11 +193,11 @@ private[redis] trait Keys[Result[_]] {
    *
    * @see <a href="http://code.google.com/p/redis/wiki/AuthCommand">Redis Command Reference</a>
    */
-  def auth[A: Store](secret: A): Result[Unit] = send(AUTH :: Store(secret) :: Nil)
+  def auth[A: Store](secret: A)(implicit executor: ExecutionContext): Result[Unit] = send(AUTH :: Store(secret) :: Nil)
 
-  def ping(): Result[String] = send(PING :: Nil)
+  def ping()(implicit executor: ExecutionContext): Result[String] = send(PING :: Nil)
 
-  def echo[A: Store](value: A): Result[Option[ByteString]] = send(ECHO :: Store(value) :: Nil)
+  def echo[A: Store](value: A)(implicit executor: ExecutionContext): Result[Option[ByteString]] = send(ECHO :: Store(value) :: Nil)
 
   /**
    * Sorts the elements contained in a List, Set, or Sorted Set value at `key`.
@@ -215,7 +216,7 @@ private[redis] trait Keys[Result[_]] {
    *
    * @see <a href="http://code.google.com/p/redis/wiki/SortCommand">Redis Command Reference</a>
    */
-  def sort[K: Store, B: Store, G: Store](key: K, by: Option[B] = Option.empty[ByteString], limit: RedisLimit = NoLimit, get: Seq[G] = List.empty[ByteString], order: Option[SortOrder] = None, alpha: Boolean = false): Result[List[Option[ByteString]]] = {
+  def sort[K: Store, B: Store, G: Store](key: K, by: Option[B] = Option.empty[ByteString], limit: RedisLimit = NoLimit, get: Seq[G] = List.empty[ByteString], order: Option[SortOrder] = None, alpha: Boolean = false)(implicit executor: ExecutionContext): Result[List[Option[ByteString]]] = {
     var cmd: List[ByteString] = Nil
     if (alpha) cmd ::= ALPHA
     order foreach (o ⇒ cmd ::= Store(o))

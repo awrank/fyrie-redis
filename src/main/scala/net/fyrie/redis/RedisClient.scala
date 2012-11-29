@@ -230,7 +230,7 @@ sealed abstract class RedisClientWatch(config: RedisClientConfig) extends Comman
 
   def multi[T](block: (RedisClientMulti) ⇒ Queued[T]): Queued[T] = block(rq)
 
-  def watch[A: serialization.Store](key: A): Future[Unit] = send(Constants.WATCH :: serialization.Store(key) :: Nil)
+  def watch[A: serialization.Store](key: A)(implicit executor: ExecutionContext): Future[Unit] = send(Constants.WATCH :: serialization.Store(key) :: Nil)
 
 }
 
@@ -277,25 +277,25 @@ private[redis] sealed abstract class Commands[Result[_]](implicit rf: ResultFunc
     builder.result.compact
   }
 
-  final private[redis] implicit def resultAsRedisType(raw: Result[Any]): Result[RedisType] = rf.fmap(raw)(toRedisType)
-  final private[redis] implicit def resultAsMultiBulk(raw: Result[Any]): Result[Option[List[Option[ByteString]]]] = rf.fmap(raw)(toMultiBulk)
-  final private[redis] implicit def resultAsMultiBulkList(raw: Result[Any]): Result[List[Option[ByteString]]] = rf.fmap(raw)(toMultiBulkList)
-  final private[redis] implicit def resultAsMultiBulkFlat(raw: Result[Any]): Result[Option[List[ByteString]]] = rf.fmap(raw)(toMultiBulkFlat)
-  final private[redis] implicit def resultAsMultiBulkFlatList(raw: Result[Any]): Result[List[ByteString]] = rf.fmap(raw)(toMultiBulkFlatList)
-  final private[redis] implicit def resultAsMultiBulkSet(raw: Result[Any]): Result[Set[ByteString]] = rf.fmap(raw)(toMultiBulkSet)
-  final private[redis] implicit def resultAsMultiBulkMap(raw: Result[Any]): Result[Map[ByteString, ByteString]] = rf.fmap(raw)(toMultiBulkMap)
-  final private[redis] implicit def resultAsMultiBulkScored(raw: Result[Any]): Result[List[(ByteString, Double)]] = rf.fmap(raw)(toMultiBulkScored)
-  final private[redis] implicit def resultAsMultiBulkSinglePair(raw: Result[Any]): Result[Option[(ByteString, ByteString)]] = rf.fmap(raw)(toMultiBulkSinglePair)
-  final private[redis] implicit def resultAsMultiBulkSinglePairK[K: Parse](raw: Result[Any]): Result[Option[(K, ByteString)]] = rf.fmap(raw)(toMultiBulkSinglePair(_).map(kv ⇒ (Parse(kv._1), kv._2)))
-  final private[redis] implicit def resultAsBulk(raw: Result[Any]): Result[Option[ByteString]] = rf.fmap(raw)(toBulk)
-  final private[redis] implicit def resultAsDouble(raw: Result[Any]): Result[Double] = rf.fmap(raw)(toDouble)
-  final private[redis] implicit def resultAsDoubleOption(raw: Result[Any]): Result[Option[Double]] = rf.fmap(raw)(toDoubleOption)
-  final private[redis] implicit def resultAsLong(raw: Result[Any]): Result[Long] = rf.fmap(raw)(toLong)
-  final private[redis] implicit def resultAsInt(raw: Result[Any]): Result[Int] = rf.fmap(raw)(toLong(_).toInt)
-  final private[redis] implicit def resultAsIntOption(raw: Result[Any]): Result[Option[Int]] = rf.fmap(raw)(toIntOption)
-  final private[redis] implicit def resultAsBool(raw: Result[Any]): Result[Boolean] = rf.fmap(raw)(toBool)
-  final private[redis] implicit def resultAsStatus(raw: Result[Any]): Result[String] = rf.fmap(raw)(toStatus)
-  final private[redis] implicit def resultAsOkStatus(raw: Result[Any]): Result[Unit] = rf.fmap(raw)(toOkStatus)
+  final private[redis] implicit def resultAsRedisType(raw: Result[Any])(implicit executor: ExecutionContext): Result[RedisType] = rf.fmap(raw)(toRedisType)
+  final private[redis] implicit def resultAsMultiBulk(raw: Result[Any])(implicit executor: ExecutionContext): Result[Option[List[Option[ByteString]]]] = rf.fmap(raw)(toMultiBulk)
+  final private[redis] implicit def resultAsMultiBulkList(raw: Result[Any])(implicit executor: ExecutionContext): Result[List[Option[ByteString]]] = rf.fmap(raw)(toMultiBulkList)
+  final private[redis] implicit def resultAsMultiBulkFlat(raw: Result[Any])(implicit executor: ExecutionContext): Result[Option[List[ByteString]]] = rf.fmap(raw)(toMultiBulkFlat)
+  final private[redis] implicit def resultAsMultiBulkFlatList(raw: Result[Any])(implicit executor: ExecutionContext): Result[List[ByteString]] = rf.fmap(raw)(toMultiBulkFlatList)
+  final private[redis] implicit def resultAsMultiBulkSet(raw: Result[Any])(implicit executor: ExecutionContext): Result[Set[ByteString]] = rf.fmap(raw)(toMultiBulkSet)
+  final private[redis] implicit def resultAsMultiBulkMap(raw: Result[Any])(implicit executor: ExecutionContext): Result[Map[ByteString, ByteString]] = rf.fmap(raw)(toMultiBulkMap)
+  final private[redis] implicit def resultAsMultiBulkScored(raw: Result[Any])(implicit executor: ExecutionContext): Result[List[(ByteString, Double)]] = rf.fmap(raw)(toMultiBulkScored)
+  final private[redis] implicit def resultAsMultiBulkSinglePair(raw: Result[Any])(implicit executor: ExecutionContext): Result[Option[(ByteString, ByteString)]] = rf.fmap(raw)(toMultiBulkSinglePair)
+  final private[redis] implicit def resultAsMultiBulkSinglePairK[K: Parse](raw: Result[Any])(implicit executor: ExecutionContext): Result[Option[(K, ByteString)]] = rf.fmap(raw)(toMultiBulkSinglePair(_).map(kv ⇒ (Parse(kv._1), kv._2)))
+  final private[redis] implicit def resultAsBulk(raw: Result[Any])(implicit executor: ExecutionContext): Result[Option[ByteString]] = rf.fmap(raw)(toBulk)
+  final private[redis] implicit def resultAsDouble(raw: Result[Any])(implicit executor: ExecutionContext): Result[Double] = rf.fmap(raw)(toDouble)
+  final private[redis] implicit def resultAsDoubleOption(raw: Result[Any])(implicit executor: ExecutionContext): Result[Option[Double]] = rf.fmap(raw)(toDoubleOption)
+  final private[redis] implicit def resultAsLong(raw: Result[Any])(implicit executor: ExecutionContext): Result[Long] = rf.fmap(raw)(toLong)
+  final private[redis] implicit def resultAsInt(raw: Result[Any])(implicit executor: ExecutionContext): Result[Int] = rf.fmap(raw)(toLong(_).toInt)
+  final private[redis] implicit def resultAsIntOption(raw: Result[Any])(implicit executor: ExecutionContext): Result[Option[Int]] = rf.fmap(raw)(toIntOption)
+  final private[redis] implicit def resultAsBool(raw: Result[Any])(implicit executor: ExecutionContext): Result[Boolean] = rf.fmap(raw)(toBool)
+  final private[redis] implicit def resultAsStatus(raw: Result[Any])(implicit executor: ExecutionContext): Result[String] = rf.fmap(raw)(toStatus)
+  final private[redis] implicit def resultAsOkStatus(raw: Result[Any])(implicit executor: ExecutionContext): Result[Unit] = rf.fmap(raw)(toOkStatus)
 
   final private[redis] val toRedisType: Any ⇒ RedisType = _ match {
     case r: RedisType ⇒ r
