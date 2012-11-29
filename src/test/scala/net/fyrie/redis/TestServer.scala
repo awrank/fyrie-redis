@@ -4,8 +4,9 @@ import org.specs2._
 import org.specs2.specification._
 import org.specs2.execute._
 import akka.actor.ActorSystem
-import akka.dispatch.{ Future, Await }
-import akka.util.Duration
+import concurrent.{ Future, Await }
+import concurrent.ExecutionContext.Implicits.global
+import concurrent.duration.Duration
 
 object TestSystem {
   val config = com.typesafe.config.ConfigFactory.parseString("""

@@ -4,17 +4,18 @@ import org.specs2._
 
 import net.fyrie.redis.types._
 import net.fyrie.redis.serialization._
+import concurrent.ExecutionContext.Implicits.global
 
 class ScriptsSpec extends mutable.Specification with UnstableClient {
 
   "eval" >> {
-    "should eval simple script returning a number" ! client { r ⇒
+    "should eval simple script returning a number" ! client { r: RedisClient ⇒
       r.sync.eval("return ARGV[1] + ARGV[2]", args = List(4, 9)) === RedisInteger(13)
     }
   }
 
   "lua dsl" >> {
-    "should produce valid lua" ! client { r ⇒
+    "should produce valid lua" ! client { r: RedisClient ⇒
       import lua._
 
       val v1 = Var("v1")
@@ -34,7 +35,7 @@ class ScriptsSpec extends mutable.Specification with UnstableClient {
       script.bytes.utf8String === "v1 = 34.0; do v2 = true; end; v3 = \"hello\"; return {v1, v2, v3}"
       r.sync.eval(script) === RedisMulti(Some(List(RedisInteger(34), RedisInteger(1), RedisBulk(Some(Store("hello"))))))
     }
-    "should provide If/Then/Else statement" ! client { r ⇒
+    "should provide If/Then/Else statement" ! client { r: RedisClient ⇒
       import lua._
 
       def script(x: Exp) = {
@@ -61,7 +62,7 @@ class ScriptsSpec extends mutable.Specification with UnstableClient {
       r.sync.eval(script("d")) === RedisInteger(8)
       r.sync.eval(script("e")) === RedisBulk(Some(Store("I don't know!")))
     }
-    "should produce valid arithmetic expressions" ! client { r ⇒
+    "should produce valid arithmetic expressions" ! client { r: RedisClient ⇒
       import lua._
 
       val n = Var("n")

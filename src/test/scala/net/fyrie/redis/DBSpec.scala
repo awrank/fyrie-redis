@@ -1,20 +1,20 @@
 package net.fyrie.redis
 
 import org.specs2._
-
-import akka.dispatch.Future
 import akka.testkit.{ filterEvents, EventFilter }
+import concurrent.ExecutionContext.Implicits.global
+import concurrent.Future
 
 class KeysSpec extends mutable.Specification with TestClient {
 
   "keys" >> {
-    "should fetch keys" ! client { r ⇒
+    "should fetch keys" ! client { r: RedisClient ⇒
       r.set("anshin-1", "debasish")
       r.set("anshin-2", "maulindu")
       r.sync.keys("anshin*").size must_== 2
     }
 
-    "should fetch keys with spaces" ! client { r ⇒
+    "should fetch keys with spaces" ! client { r: RedisClient ⇒
       r.set("anshin 1", "debasish")
       r.set("anshin 2", "maulindu")
       r.sync.keys("anshin*").size must_== 2
@@ -22,7 +22,7 @@ class KeysSpec extends mutable.Specification with TestClient {
   }
 
   "randomkey" >> {
-    "should give" ! client { r ⇒
+    "should give" ! client { r: RedisClient ⇒
       r.set("anshin-1", "debasish")
       r.set("anshin-2", "maulindu")
       r.sync.randomkey().parse[String].get must startWith("anshin")
@@ -30,7 +30,7 @@ class KeysSpec extends mutable.Specification with TestClient {
   }
 
   "rename" >> {
-    "should give" ! client { r ⇒
+    "should give" ! client { r: RedisClient ⇒
       r.set("anshin-1", "debasish")
       r.set("anshin-2", "maulindu")
       r.rename("anshin-2", "anshin-2-new")
@@ -39,7 +39,7 @@ class KeysSpec extends mutable.Specification with TestClient {
   }
 
   "renamenx" >> {
-    "should give" ! client { r ⇒
+    "should give" ! client { r: RedisClient ⇒
       r.set("anshin-1", "debasish")
       r.set("anshin-2", "maulindu")
       r.sync.renamenx("anshin-2", "anshin-2-new") must_== true
@@ -48,7 +48,7 @@ class KeysSpec extends mutable.Specification with TestClient {
   }
 
   "dbsize" >> {
-    "should give" ! client { r ⇒
+    "should give" ! client { r: RedisClient ⇒
       r.set("anshin-1", "debasish")
       r.set("anshin-2", "maulindu")
       r.sync.dbsize() must_== 2
@@ -56,7 +56,7 @@ class KeysSpec extends mutable.Specification with TestClient {
   }
 
   "exists" >> {
-    "should give" ! client { r ⇒
+    "should give" ! client { r: RedisClient ⇒
       r.set("anshin-1", "debasish")
       r.set("anshin-2", "maulindu")
       r.sync.exists("anshin-2") must_== true
@@ -66,7 +66,7 @@ class KeysSpec extends mutable.Specification with TestClient {
   }
 
   "del" >> {
-    "should give" ! client { r ⇒
+    "should give" ! client { r: RedisClient ⇒
       r.set("anshin-1", "debasish")
       r.set("anshin-2", "maulindu")
       r.sync.del(Set("anshin-2", "anshin-1")) must_== 2
@@ -75,7 +75,7 @@ class KeysSpec extends mutable.Specification with TestClient {
   }
 
   "type" >> {
-    "should give" ! client { r ⇒
+    "should give" ! client { r: RedisClient ⇒
       r.set("anshin-1", "debasish")
       r.set("anshin-2", "maulindu")
       r.sync.typeof("anshin-2") must_== "string"
@@ -83,7 +83,7 @@ class KeysSpec extends mutable.Specification with TestClient {
   }
 
   "expire" >> {
-    "should give" ! client { r ⇒
+    "should give" ! client { r: RedisClient ⇒
       r.set("anshin-1", "debasish")
       r.set("anshin-2", "maulindu")
       r.sync.expire("anshin-2", 1000) must_== true
@@ -114,12 +114,12 @@ class KeysSpec extends mutable.Specification with TestClient {
   } */
 
   "Multi exec commands" >> {
-    "should work with single commands" ! client { r ⇒
+    "should work with single commands" ! client { r: RedisClient ⇒
       r.multi { rq ⇒
         rq.set("testkey1", "testvalue1")
       } map (_ === ())
     }
-    "should work with several commands" ! client { r ⇒
+    "should work with several commands" ! client { r: RedisClient ⇒
       r.multi { rq ⇒
         for {
           _ ← rq.set("testkey1", "testvalue1")
@@ -128,7 +128,7 @@ class KeysSpec extends mutable.Specification with TestClient {
         } yield x
       } map (_ === List(Some("testvalue1"), Some("testvalue2")))
     }
-    "should work with a list of commands" ! client { r ⇒
+    "should work with a list of commands" ! client { r: RedisClient ⇒
       val values = List.range(1, 100)
       Future sequence {
         r.multi { rq ⇒
@@ -137,7 +137,7 @@ class KeysSpec extends mutable.Specification with TestClient {
         }
       } map (_.flatten === values.map(2*))
     }
-    "should throw an error" ! client { r ⇒
+    "should throw an error" ! client { r: RedisClient ⇒
       filterEvents(EventFilter[RedisErrorException]("ERR Operation against a key holding the wrong kind of value")) {
         val result = r.multi { rq ⇒
           for {
@@ -154,7 +154,7 @@ class KeysSpec extends mutable.Specification with TestClient {
         }
       }
     }
-    "should handle invalid requests" ! client { r ⇒
+    "should handle invalid requests" ! client { r: RedisClient ⇒
       filterEvents(EventFilter[RedisErrorException]("ERR Operation against a key holding the wrong kind of value")) {
         val result = r.multi { rq ⇒
           for {
@@ -175,7 +175,7 @@ class KeysSpec extends mutable.Specification with TestClient {
   }
 
   "watch" >> {
-    "should fail without watch" ! client { r ⇒
+    "should fail without watch" ! client { r: RedisClient ⇒
       r.set("key", 0) flatMap { _ ⇒
         val clients = List.fill(10)(RedisClient())
         val futures = for (client ← clients; _ ← 1 to 10) yield client.get("key").parse[Int] flatMap { n ⇒ client.set("key", n.get + 1) }
@@ -185,7 +185,7 @@ class KeysSpec extends mutable.Specification with TestClient {
         }
       }
     }
-    "should succeed with watch" ! client { r ⇒
+    "should succeed with watch" ! client { r: RedisClient ⇒
       r.sync.set("key", 0)
       val futures = for (_ ← 1 to 100) yield {
         r atomic { rw ⇒
@@ -199,7 +199,7 @@ class KeysSpec extends mutable.Specification with TestClient {
         r.get("key").parse[Int] map (_ === Some(100))
       }
     }
-    "should handle complex request" ! client { r ⇒
+    "should handle complex request" ! client { r: RedisClient ⇒
       r.sync.rpush("mykey1", 5)
       r.set("mykey2", "hello")
       r.hset("mykey3", "hello", 7)
@@ -231,19 +231,19 @@ class KeysSpec extends mutable.Specification with TestClient {
   }
 
   "sort" >> {
-    "should do a simple sort" ! client { r ⇒
+    "should do a simple sort" ! client { r: RedisClient ⇒
       List(6, 3, 5, 47, 1, 1, 4, 9) foreach (r.lpush("sortlist", _))
       r.sync.sort("sortlist").parse[Int].flatten must_== List(1, 1, 3, 4, 5, 6, 9, 47)
     }
-    "should do a lexical sort" ! client { r ⇒
+    "should do a lexical sort" ! client { r: RedisClient ⇒
       List("lorem", "ipsum", "dolor", "sit", "amet") foreach (r.lpush("sortlist", _))
       List(3, 7) foreach (r.lpush("sortlist", _))
       r.sync.sort("sortlist", alpha = true).parse[String].flatten must_== List("3", "7", "amet", "dolor", "ipsum", "lorem", "sit")
     }
-    "should return an empty list if key not found" ! client { r ⇒
+    "should return an empty list if key not found" ! client { r: RedisClient ⇒
       r.sync.sort("sortnotfound") must beEmpty
     }
-    "should return multiple items" ! client { r ⇒
+    "should return multiple items" ! client { r: RedisClient ⇒
       val list = List(("item1", "data1", 1, 4),
         ("item2", "data2", 2, 8),
         ("item3", "data3", 3, 1),
